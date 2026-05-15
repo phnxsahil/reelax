@@ -14,6 +14,16 @@ else
     echo "[OK] python3 is installed."
 fi
 
+# Check for Homebrew (macOS only)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if ! command -v brew &> /dev/null; then
+        echo "[!] Homebrew not found. It is required to install system dependencies on Mac."
+        echo "Please install it from https://brew.sh or run:"
+        echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+        exit 1
+    fi
+fi
+
 # Check for ADB
 if ! command -v adb &> /dev/null; then
     echo "[!] adb not found."
