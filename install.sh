@@ -6,12 +6,23 @@ echo "              reelax Setup (Mac/Linux)"
 echo "==================================================="
 echo ""
 
-# Check for Python
+# Check for Python and its version
 if ! command -v python3 &> /dev/null; then
     echo "[!] python3 not found. Please install Python 3.10+ to continue."
     exit 1
 else
-    echo "[OK] python3 is installed."
+    # Check if Python version is >= 3.10
+    PY_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+    if awk 'BEGIN {exit !('"$PY_VERSION"' < 3.10)}'; then
+        echo "[!] Your Python version ($PY_VERSION) is too old. reelax requires Python 3.10 or newer."
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "Since you are on Mac, you can upgrade by running:"
+            echo "  brew install python@3.12"
+        fi
+        exit 1
+    else
+        echo "[OK] python3 is installed (version $PY_VERSION)."
+    fi
 fi
 
 # Check for Homebrew (macOS only)
