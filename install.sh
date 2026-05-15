@@ -53,7 +53,7 @@ fi
 
 echo ""
 echo "Installing reelax package..."
-pip install -e .
+python3 -m pip install -e .
 
 echo ""
 echo "==================================================="
