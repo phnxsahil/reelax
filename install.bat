@@ -39,7 +39,8 @@ if %errorlevel% neq 0 (
 
 echo.
 echo Installing reelax package...
-pip install -e .
+python -m pip install --upgrade pip
+python -m pip install .
 
 echo.
 echo ===================================================
