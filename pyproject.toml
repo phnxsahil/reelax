@@ -1,0 +1,34 @@
+[project]
+name = "reelax"
+version = "0.1.0"
+description = "Auto-scroll Instagram Reels while you code"
+authors = [
+    { name = "Developer", email = "dev@example.com" }
+]
+dependencies = [
+    "click>=8.1.7",
+    "loguru>=0.7.2",
+    "pydantic>=2.5.2",
+    "pynput>=1.7.6",
+    "uiautomator2>=3.0.0",
+    "PyYAML>=6.0.1",
+    "rich>=13.7.0"
+]
+requires-python = ">=3.10"
+
+[project.scripts]
+reelax = "reelax.cli.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["reelax*"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
