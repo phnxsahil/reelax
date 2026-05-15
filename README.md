@@ -1,45 +1,72 @@
 <div align="center">
 
-# reelax
-**Ambient flow-state. Auto-scroll Instagram Reels while you code.**
+# 🌊 reelax
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![OS](https://img.shields.io/badge/OS-Windows%20|%20Mac%20|%20Linux-lightgrey.svg)]()
+**The Ambient Flow-State Scroller**
 
-<br/>
-<img src="https://raw.githubusercontent.com/phnxsahil/reelax/main/assets/demo.gif" width="600" alt="reelax demo" />
-<br/><br/>
+*Stop staring at your phone. Put it on your desk and let it flow while you code.*
 
-*Reelax turns your phone into an ambient background display. It auto-scrolls Reels, pauses instantly when you type on your computer, skips sponsored ads, and filters out keywords you don't want to see.*
-
-</div>
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F1D900?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![OS](https://img.shields.io/badge/Platform-Windows%20|%20Mac%20|%20Linux-000000?style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-Shipping%20V1-success?style=for-the-badge)]()
 
 ---
 
-## ✨ Features
+<p align="center">
+  <img src="https://raw.githubusercontent.com/phnxsahil/reelax/main/assets/header.png" width="800" alt="reelax banner" />
+</p>
 
-- **🧠 Smart Typing Detection**: `reelax` monitors your keyboard (locally). When you start typing, the reel pauses instantly. When you stop, it resumes.
-- **⚡ Superfast Ad Skipping**: Automatically detects "Sponsored" tags and instantly skips to the next reel in ~100ms.
-- **🚫 AI Keyword Filtering**: Block reels containing words like "politics" or "crypto" — `reelax` reads the screen text and skips them automatically.
-- **📺 Picture-in-Picture Mirroring**: Mirrors your phone directly to your computer screen using `scrcpy` (pinned, always-on-top, small window), while turning your actual phone screen off to save battery.
-- **🎮 Built-in Hotkeys**: Press `+` / `-` to change volume, `l` to double-tap like, `s` to save, or `n` to manually skip.
+`reelax` transforms your Android device into a smart, ambient background display. It auto-scrolls through Instagram Reels, intelligently pausing the moment you touch your keyboard and resuming when you're back in the zone.
 
-## 🚀 Installation
+[Features](#-features) • [Quick Start](#-quick-start) • [Customization](#-customization) • [Contributing](#-contributing)
 
-### Prerequisites
-- **Android Phone** with [USB Debugging Enabled](https://developer.android.com/studio/debug/dev-options)
-- **Python 3.10+**
+</div>
 
-### Windows Quick Install
-Just run the included batch script. It will automatically install Python, ADB, and scrcpy using `winget` if you don't have them.
-```cmd
-git clone https://github.com/phnxsahil/reelax.git
-cd reelax
-install.bat
+## 💎 Features
+
+| Feature | Description |
+| :--- | :--- |
+| **🧠 Smart Pause** | Monitors your keyboard locally. Typing = Pause. Idle = Flow. |
+| **⚡ Ad-Vanish** | Blazing fast detection that skips "Sponsored" content in ~100ms. |
+| **🚫 AI Keyword Block** | Automatically skips reels containing words like `politics` or `crypto`. |
+| **📺 Mirroring** | Pinned, always-on-top window using `scrcpy` with audio support. |
+| **🎮 Macro Control** | Like (`l`), Save (`s`), Volume (`+/-`), and Skip (`n`) right from your terminal. |
+| **🔋 Battery Saver** | Turns your physical phone screen off while mirroring to your PC. |
+
+---
+
+## 🛠️ How it Works
+
+```mermaid
+graph LR
+    A[Computer Keyboard] -- "Typing Detected" --> B[reelax Engine]
+    B -- "ADB Tap (Pause)" --> C[Android Phone]
+    B -- "No Typing" --> D[Resume Flow]
+    D -- "ADB Swipe" --> C
+    C -- "Screen Capture" --> E[scrcpy Mirror]
+    E -- "Always on Top" --> F[Your Workspace]
 ```
 
-### Mac/Linux Quick Install
+---
+
+## 🚀 Quick Start
+
+### 1. Prerequisites
+- **Android Device** with [USB Debugging Enabled](https://developer.android.com/studio/debug/dev-options).
+- **Python 3.10+** installed on your system.
+
+### 2. Automatic Setup
+Clone the repo and run the installer for your OS. It will automatically handle system dependencies like `scrcpy` and `adb`.
+
+#### **Windows** 🪟
+```powershell
+git clone https://github.com/phnxsahil/reelax.git
+cd reelax
+.\install.bat
+```
+
+#### **Mac & Linux** 🍎🐧
 ```bash
 git clone https://github.com/phnxsahil/reelax.git
 cd reelax
@@ -47,62 +74,63 @@ chmod +x install.sh
 ./install.sh
 ```
 
-## 🎮 Usage
-
-Plug in your Android phone via USB (or connect via WiFi ADB), open your terminal, and simply type:
-
+### 3. Launch
+Just type `reelax` in your terminal:
 ```bash
 reelax
 ```
 
-This will launch the **Interactive Dashboard**:
+---
 
-```text
-                  _            
-  _ __ ___  ___ | | __ ___  __
- | '__/ _ \/ _ \| |/ _` \ \/ /
- | | |  __/  __/| | (_| |>  < 
- |_|  \___|\___|_|\__,_/_/\_\
+## 🎨 Customization
 
-  ● Device: RZCT41L9X2P
-  ● Screen mirror: ready
+Press `7` in the main menu to enter the **Customization Suite**.
 
-┌──────────────────────────────────  Menu  ───────────────────────────────────┐
-│                                                                             │
-│     1          Start  (with screen mirror)                                  │
-│     2          Start  (scroll only)                                         │
-│     3          Cadence                     (Change scroll speed)            │
-│     4          WiFi Connect                (Connect to phone wirelessly)    │
-│     7          Customization               (Edit keywords & config)         │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+- **Keyword Blocklist**: Add words like `trading, sports, food`. If `reelax` sees these in the reel text, it skips them instantly.
+- **Cadence Control**: Choose between Slow, Medium, or Fast scroll speeds, or set a custom interval.
+- **WiFi Mode**: Tired of cables? Connect wirelessly via the dashboard in seconds.
 
-Press `1` to start. Your phone screen will pop up as a small pinned window, Instagram Reels will open automatically, and ambient scrolling will begin.
+---
 
-### Session Hotkeys
-While a session is running, you can use these keys directly in the terminal:
-- `n` : Skip to next reel
-- `l` : Like the current reel (double tap)
-- `s` : Save the current reel
-- `+` / `-` : Turn phone volume up or down
-- `q` : Stop the session gracefully
+## 🎮 Terminal Hotkeys
 
-## ⚙️ Customization & Keywords
+While the session is running, your terminal becomes the remote control:
 
-From the main menu, press `7` to enter the **Customization** section. Here you can add comma-separated keywords to your blocklist (e.g., `politics, trading, crypto`). 
+| Key | Action |
+| :---: | :--- |
+| `n` | Skip to next reel |
+| `l` | **Like** current reel (Double tap) |
+| `s` | **Save** current reel |
+| `+` | Volume Up |
+| `-` | Volume Down |
+| `h` | Toggle Help Overlay |
+| `q` | Quit Session |
 
-`reelax` will scan the screen text using Android's native view hierarchy dump and instantly skip any reels matching your blocked words.
+---
 
-## 🛠️ Architecture
-Built entirely in Python.
-- `adb shell` for blazing-fast, low-level screen interaction.
-- `pynput` for cross-platform global keyboard monitoring.
-- `rich` for the beautiful Terminal User Interface (TUI).
-- `scrcpy` for high-performance screen mirroring.
+## 🗺️ Roadmap
+
+- [ ] **Randomized Intervals**: Human-like variance to prevent detection.
+- [ ] **Session Analytics**: See how many hours of "flow" you've achieved.
+- [ ] **Multi-App Support**: Support for other scrolling apps (Youtube Shorts, etc).
+- [ ] **GUI Wrapper**: A full desktop application experience.
+
+---
 
 ## 🤝 Contributing
-Pull requests are welcome! If you'd like to add iOS support, advanced AI image filtering, or new gestures, please open an issue first to discuss what you would like to change.
 
-## 📄 License
-[MIT](https://choosealicense.com/licenses/mit/)
+`reelax` is built for the community. If you want to add a feature or fix a bug:
+1. Fork the repo.
+2. Create your feature branch.
+3. Commit your changes.
+4. Open a Pull Request.
+
+---
+
+<div align="center">
+
+Built with ❤️ by [phnxsahil](https://github.com/phnxsahil)
+
+[Back to top](#-reelax)
+
+</div>
