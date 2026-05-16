@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reelax"
-version = "0.3.2"
+version = "0.3.3"
 description = "Auto-scroll Instagram Reels while you code"
 readme = "README.md"
 authors = [
@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "pystray>=0.19",
     "Pillow>=10.0",
-    "keyboard>=0.13",
+    "pynput>=1.7.6",
     "uiautomator2>=3.0.0",
     "click>=8.1.7",
     "rich>=13.7.0",

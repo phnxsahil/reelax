@@ -1,28 +1,27 @@
 """Cross-platform keyboard monitor for reelax.
 
-Uses the `keyboard` library. No accessibility permissions needed on macOS, 
-but requires root/admin on Linux/Windows if not hooked at the driver level.
+Uses the `pynput` library to avoid requiring Administrator privileges on Windows.
+Requires Accessibility permissions on macOS.
 """
 
 import time
 import threading
+from loguru import logger
 from typing import Optional
 
-from loguru import logger
-
 try:
-    import keyboard
-    KEYBOARD_AVAILABLE = True
+    from pynput import keyboard
+    PYNPUT_AVAILABLE = True
 except ImportError:
-    KEYBOARD_AVAILABLE = False
+    PYNPUT_AVAILABLE = False
 
 _last_key_time: float = 0.0
 _lock = threading.Lock()
-_hooked: bool = False
+_listener: Optional[keyboard.Listener] = None
+_hotkeys: Optional[keyboard.GlobalHotKeys] = None
 
-
-def _on_any_key(event) -> None:
-    """Callback for key press events."""
+def _on_press(key) -> None:
+    """Callback for any key press."""
     global _last_key_time
     with _lock:
         _last_key_time = time.monotonic()
@@ -30,30 +29,29 @@ def _on_any_key(event) -> None:
 
 def start_listener() -> bool:
     """Start the global keyboard listener."""
-    global _hooked
+    global _listener
 
-    if not KEYBOARD_AVAILABLE:
-        logger.warning(
-            "keyboard library not installed. Typing detection disabled.\n"
-            "Install it: pip install keyboard"
-        )
+    if not PYNPUT_AVAILABLE:
+        logger.warning("pynput not installed. Typing detection disabled.")
         return False
 
-    if _hooked:
+    if _listener and _listener.running:
         return True
 
     try:
-        keyboard.on_press(_on_any_key, suppress=False)
-        _hooked = True
+        _listener = keyboard.Listener(on_press=_on_press)
+        _listener.start()
+        
+        # macOS permission check (fails silently if no access)
+        time.sleep(0.2)
+        if not _listener.running:
+            logger.warning("Keyboard listener died. macOS: Grant Accessibility permissions to your terminal.")
+            return False
+            
         logger.info("Keyboard listener ready.")
         return True
     except Exception as e:
-        logger.error(
-            f"Keyboard listener failed: {e}\n"
-            "macOS: Requires sudo to hook keys.\n"
-            "Windows: Try running as Administrator.\n"
-            "Typing detection will be disabled for this session."
-        )
+        logger.error(f"Keyboard listener failed: {e}")
         return False
 
 
@@ -66,29 +64,62 @@ def is_typing(idle_threshold: float = 3.0) -> bool:
 
 
 def stop_listener() -> None:
-    """Stop the keyboard listener if running."""
-    global _hooked
-    if _hooked:
-        try:
-            keyboard.unhook_all()
-        except Exception:
-            pass
-        _hooked = False
-        logger.info("Keyboard listener stopped.")
+    """Stop the keyboard listener and hotkeys."""
+    global _listener, _hotkeys
+    
+    if _listener:
+        _listener.stop()
+        _listener = None
+        
+    if _hotkeys:
+        _hotkeys.stop()
+        _hotkeys = None
+        
+    logger.info("Keyboard listeners stopped.")
 
 
 def register_hotkeys(engine) -> None:
-    """Global hotkeys — work from any app, no terminal focus needed."""
-    if not KEYBOARD_AVAILABLE:
+    """Register global hotkeys via pynput."""
+    global _hotkeys
+    
+    if not PYNPUT_AVAILABLE:
+        return
+        
+    if _hotkeys and _hotkeys.running:
         return
 
     try:
-        keyboard.add_hotkey("ctrl+shift+n", lambda: engine.skip_to_next())
-        keyboard.add_hotkey("ctrl+shift+l", lambda: getattr(engine.device, "like_reel", lambda: None)())
-        keyboard.add_hotkey("ctrl+shift+s", lambda: getattr(engine.device, "save_reel", lambda: None)())
-        # engine.toggle_pause() is not implemented yet, we can add it later if needed, or omit it.
-        # keyboard.add_hotkey("ctrl+shift+p", lambda: engine.toggle_pause())
-        keyboard.add_hotkey("ctrl+shift+q", lambda: engine.stop())
-        logger.info("Global hotkeys registered: Ctrl+Shift+{N,L,S,Q}")
+        def on_next():
+            logger.info("Hotkey: Next Reel")
+            engine.skip_to_next()
+            
+        def on_like():
+            logger.info("Hotkey: Like Reel")
+            getattr(engine.device, "like_reel", lambda: None)()
+            
+        def on_save():
+            logger.info("Hotkey: Save Reel")
+            getattr(engine.device, "save_reel", lambda: None)()
+            
+        def on_stop():
+            logger.info("Hotkey: Stop")
+            engine.stop()
+
+        hotkeys_mapping = {
+            '<ctrl>+<shift>+n': on_next,
+            '<ctrl>+<shift>+l': on_like,
+            '<ctrl>+<shift>+s': on_save,
+            '<ctrl>+<shift>+q': on_stop
+        }
+
+        _hotkeys = keyboard.GlobalHotKeys(hotkeys_mapping)
+        _hotkeys.start()
+        
+        time.sleep(0.2)
+        if not _hotkeys.running:
+            logger.warning("Failed to start GlobalHotKeys (likely macOS permissions).")
+        else:
+            logger.info("Global hotkeys registered: Ctrl+Shift+{N,L,S,Q}")
+            
     except Exception as e:
         logger.warning(f"Failed to register global hotkeys: {e}")

@@ -5,7 +5,7 @@ import sys
 import os
 import subprocess
 import pystray
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from loguru import logger
 
 from reelax.core.scroller import ScrollEngine
@@ -17,19 +17,24 @@ config = load_config()
 scrcpy_proc: subprocess.Popen | None = None
 
 def make_icon(state: str = "stopped") -> Image.Image:
-    """Draw a simple circle icon for the tray."""
+    """Draw a custom 'R' icon for the tray."""
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     
-    if state == "running":
-        # Green circle
-        d.ellipse([8, 8, 56, 56], fill="#00cc77")
-        d.ellipse([22, 22, 42, 42], fill=(0, 0, 0, 0))
-    else:
-        # Gray circle
-        d.ellipse([8, 8, 56, 56], fill="#888888")
-        d.ellipse([22, 22, 42, 42], fill=(0, 0, 0, 0))
+    color = "#00cc77" if state == "running" else "#888888"
+    d.ellipse([4, 4, 60, 60], fill=color)
+    
+    try:
+        if sys.platform == "win32":
+            font = ImageFont.truetype("arial.ttf", 40)
+        elif sys.platform == "darwin":
+            font = ImageFont.truetype("Arial.ttf", 40)
+        else:
+            font = ImageFont.load_default()
+    except Exception:
+        font = ImageFont.load_default()
         
+    d.text((32, 32), "R", fill="white", anchor="mm", font=font)
     return img
 
 def update_icon_state(icon, state: str):
