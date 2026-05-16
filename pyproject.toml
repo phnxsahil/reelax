@@ -1,30 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "reelax"
-version = "0.2.0"
+version = "0.3.0"
 description = "Auto-scroll Instagram Reels while you code"
+readme = "README.md"
 authors = [
     { name = "Developer", email = "dev@example.com" }
 ]
-dependencies = [
-    "click>=8.1.7",
-    "loguru>=0.7.2",
-    "pydantic>=2.5.2",
-    "pynput>=1.7.6",
-    "uiautomator2>=3.0.0",
-    "PyYAML>=6.0.1",
-    "rich>=13.7.0"
-]
 requires-python = ">=3.10"
+keywords = ["instagram", "reels", "developer-tools", "adb", "automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pystray>=0.19",
+    "Pillow>=10.0",
+    "keyboard>=0.13",
+    "uiautomator2>=3.0.0",
+    "click>=8.1.7",
+    "rich>=13.7.0",
+    "pydantic>=2.5.2",
+    "PyYAML>=6.0.1",
+    "loguru>=0.7.2",
+]
 
 [project.scripts]
-reelax = "reelax.cli.main:main"
+reelax = "reelax.tray:run_tray"
 
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-include = ["reelax*"]
+[project.urls]
+Homepage = "https://github.com/phnxsahil/reelax"
+Issues = "https://github.com/phnxsahil/reelax/issues"
 
 [tool.ruff]
 line-length = 88

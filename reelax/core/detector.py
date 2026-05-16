@@ -48,17 +48,18 @@ def is_ad_reel(device: ADBDevice) -> bool:
     return _dumpsys_ad_check(device)
 
 
+import re
+
 def _dumpsys_ad_check(device: ADBDevice) -> bool:
     """Scan dumpsys for Sponsored keyword — last resort."""
     try:
-        # Build regex from markers for grep
-        pattern = "|".join(AD_MARKERS)
+        # Build regex from markers for python re module
+        pattern = re.compile("|".join(re.escape(m) for m in AD_MARKERS), re.IGNORECASE)
         result = subprocess.run(
-            ["adb", "-s", device.serial, "shell",
-             "dumpsys", "activity", "top", "|", "grep", "-iE", f"'{pattern}'"],
+            ["adb", "-s", device.serial, "shell", "dumpsys", "activity", "top"],
             capture_output=True, text=True, timeout=3, shell=False
         )
-        return len(result.stdout.strip()) > 0
+        return bool(pattern.search(result.stdout))
     except Exception:
         return False
 
@@ -88,12 +89,11 @@ def is_blocked_keyword(device: ADBDevice, blocklist: List[str]) -> bool:
             
     # Fallback to dumpsys
     try:
-        pattern = "|".join(blocklist)
+        pattern = re.compile("|".join(re.escape(k) for k in blocklist), re.IGNORECASE)
         result = subprocess.run(
-            ["adb", "-s", device.serial, "shell",
-             "dumpsys", "activity", "top", "|", "grep", "-iE", f"'{pattern}'"],
+            ["adb", "-s", device.serial, "shell", "dumpsys", "activity", "top"],
             capture_output=True, text=True, timeout=3, shell=False
         )
-        return len(result.stdout.strip()) > 0
+        return bool(pattern.search(result.stdout))
     except Exception:
         return False

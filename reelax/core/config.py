@@ -25,6 +25,17 @@ class ScrollSettings(BaseModel):
     blocklist_keywords: list[str] = Field(default_factory=lambda: ["politics", "crypto", "trading"])
 
 
+class MirrorConfig(BaseModel):
+    """scrcpy window mirror settings."""
+    width: int = Field(default=420, ge=200, le=1080)
+    position_x: int = 0
+    position_y: int = 0
+    always_on_top: bool = True
+    borderless: bool = True
+    audio: bool = False
+
+
+
 class KeyboardSettings(BaseModel):
     """Keyboard monitoring settings."""
     enabled: bool = True
@@ -43,6 +54,7 @@ class ReelaxConfig(BaseModel):
     scroll: ScrollSettings = ScrollSettings()
     keyboard: KeyboardSettings = KeyboardSettings()
     display: DisplaySettings = DisplaySettings()
+    mirror: MirrorConfig = MirrorConfig()
 
 
 # --- Config File Paths ---
