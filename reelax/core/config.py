@@ -27,7 +27,7 @@ class ScrollSettings(BaseModel):
 
 class MirrorConfig(BaseModel):
     """scrcpy window mirror settings."""
-    width: int = Field(default=420, ge=200, le=1080)
+    width: int = Field(default=540, ge=200, le=1080)
     position_x: int = 0
     position_y: int = 0
     always_on_top: bool = True

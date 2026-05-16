@@ -44,7 +44,7 @@ def start_session(icon, item):
     if engine and engine._running:
         return
         
-    engine = ScrollEngine(config.scroll)
+    engine = ScrollEngine(config)
     
     # Launch scrcpy if configured
     if scrcpy_proc is None or scrcpy_proc.poll() is not None:
@@ -99,6 +99,15 @@ def open_settings(icon, item):
     else:
         subprocess.run(["xdg-open", config_path])
 
+def show_hotkeys(icon, item):
+    msg = (
+        "Ctrl+Shift+N : Next Reel\n"
+        "Ctrl+Shift+L : Like\n"
+        "Ctrl+Shift+S : Save\n"
+        "Ctrl+Shift+Q : Stop"
+    )
+    icon.notify(msg, title="Reelax Hotkeys")
+
 def quit_app(icon, item):
     stop_session(icon, item)
     icon.stop()
@@ -112,6 +121,7 @@ def run_tray():
             pystray.MenuItem("▶  Start scrolling", start_session, default=True),
             pystray.MenuItem("⏹  Stop", stop_session),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("⌨  Show Hotkeys", show_hotkeys),
             pystray.MenuItem("⚙  Settings", open_settings),
             pystray.MenuItem("✕  Quit", quit_app),
         )

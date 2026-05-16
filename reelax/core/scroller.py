@@ -108,8 +108,8 @@ class ScrollEngine:
       - Debounced typing pause
     """
 
-    def __init__(self, config: Optional[ScrollConfig] = None):
-        self.config = config or ScrollConfig()
+    def __init__(self, config=None):
+        self.config = config
         self.device: Optional[ADBDevice] = None
         self.session = ScrollSession()
         self._running = False
@@ -118,7 +118,7 @@ class ScrollEngine:
 
     @property
     def is_paused(self) -> bool:
-        return is_typing(self.config.idle_threshold_seconds)
+        return is_typing(self.config.keyboard.idle_threshold_seconds)
 
     def start(self, serial: Optional[str] = None) -> None:
         """Start the scrolling session (blocking)."""
@@ -150,12 +150,12 @@ class ScrollEngine:
         self.last_status = "scrolling"
 
     def _run_loop(self) -> None:
-        logger.info(f"Scroll loop started (interval: {self.config.interval_seconds}s)")
+        logger.info(f"Scroll loop started (interval: {self.config.scroll.interval_seconds}s)")
         try:
             while self._running:
                 self._tick()
                 slept = 0.0
-                while slept < self.config.interval_seconds and self._running:
+                while slept < self.config.scroll.interval_seconds and self._running:
                     time.sleep(0.5)
                     slept += 0.5
                     self._time_on_current_reel += 0.5
@@ -169,7 +169,7 @@ class ScrollEngine:
 
     def _handle_typing_state(self) -> None:
         """Track typing — no tapping, just pause the scroll timer."""
-        if is_typing(self.config.idle_threshold_seconds):
+        if is_typing(self.config.keyboard.idle_threshold_seconds):
             self.session.record_pause()
             self.last_status = "paused"
         else:
@@ -183,7 +183,7 @@ class ScrollEngine:
             return
 
         # 1. Typing → do nothing
-        if is_typing(self.config.idle_threshold_seconds):
+        if is_typing(self.config.keyboard.idle_threshold_seconds):
             self.last_status = "paused"
             return
 
@@ -200,7 +200,7 @@ class ScrollEngine:
             return
 
         # 3. Ad detection → skip
-        if self.config.ad_skip_enabled and is_ad_reel(self.device):
+        if self.config.scroll.ad_skip_enabled and is_ad_reel(self.device):
             self.last_status = "ad_skip"
             self.session.record_ad_skip()
             self.device.natural_swipe()
@@ -211,7 +211,7 @@ class ScrollEngine:
             return
 
         # 3.5 Keyword Filtering → skip
-        if self.config.blocklist_keywords and is_blocked_keyword(self.device, self.config.blocklist_keywords):
+        if self.config.scroll.blocklist_keywords and is_blocked_keyword(self.device, self.config.scroll.blocklist_keywords):
             self.last_status = "keyword_skip"
             self.session.record_keyword_filter()
             self.device.natural_swipe()
@@ -222,7 +222,7 @@ class ScrollEngine:
             return
 
         # 4. Normal scroll - final debounce check
-        if self._running and not is_typing(self.config.idle_threshold_seconds):
+        if self._running and not is_typing(self.config.keyboard.idle_threshold_seconds):
             self.last_status = "scrolling"
             self.device.natural_swipe()
             self.session.record_scroll()

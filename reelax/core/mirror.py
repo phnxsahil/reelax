@@ -8,7 +8,7 @@ from typing import Optional
 
 def launch_scrcpy(
     device_serial: str,
-    width: int = 420,
+    width: int = 540,
     position_x: int = 0,
     position_y: int = 0,
     audio: bool = False,

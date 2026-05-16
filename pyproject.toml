@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reelax"
-version = "0.3.0"
+version = "0.3.2"
 description = "Auto-scroll Instagram Reels while you code"
 readme = "README.md"
 authors = [
@@ -32,7 +32,7 @@ dependencies = [
     "loguru>=0.7.2",
 ]
 
-[project.scripts]
+[project.gui-scripts]
 reelax = "reelax.tray:run_tray"
 
 [project.urls]
