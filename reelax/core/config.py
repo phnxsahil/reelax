@@ -21,10 +21,7 @@ class DeviceConfig(BaseModel):
 class ScrollSettings(BaseModel):
     """Scroll behavior settings."""
     interval_seconds: float = Field(default=20.0, ge=3.0, le=120.0)
-    swipe_duration_ms: int = Field(default=300, ge=100, le=1000)
-    swipe_start_y: int = 1600
-    swipe_end_y: int = 300
-    swipe_x: int = 500
+    ad_skip_enabled: bool = True
     blocklist_keywords: list[str] = Field(default_factory=lambda: ["politics", "crypto", "trading"])
 
 

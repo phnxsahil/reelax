@@ -262,10 +262,6 @@ def run_session(with_mirror: bool = True, interval: float = 20.0):
     scroll_config = ScrollConfig(
         interval_seconds=interval,
         idle_threshold_seconds=user_config.keyboard.idle_threshold_seconds,
-        swipe_x=user_config.scroll.swipe_x,
-        swipe_start_y=user_config.scroll.swipe_start_y,
-        swipe_end_y=user_config.scroll.swipe_end_y,
-        swipe_duration_ms=user_config.scroll.swipe_duration_ms,
         blocklist_keywords=user_config.scroll.blocklist_keywords,
     )
 
@@ -297,11 +293,16 @@ def run_session(with_mirror: bool = True, interval: float = 20.0):
             console.print(f"  [yellow]⚠[/yellow] scrcpy not installed — run [bold]winget install Genymobile.scrcpy[/bold]")
 
         # Start engine components
-        engine.kb_monitor.start()
         engine.session.start()
         engine._running = True
+        
+        # We start the listener here so we can give feedback
+        from reelax.core.keyboard import start_listener
+        if start_listener():
+            console.print(f"  [green]✔[/green] Keyboard monitor active")
+        else:
+            console.print(f"  [yellow]⚠[/yellow] Keyboard monitor failed to start")
 
-        console.print(f"  [green]✔[/green] Keyboard monitor active")
         console.print(f"\n  [bold green]▶ Session started![/bold green]\n")
 
         # Live dashboard with inline command support

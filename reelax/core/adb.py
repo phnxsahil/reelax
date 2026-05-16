@@ -113,32 +113,61 @@ class ADBDevice:
         """Check if Instagram is the current foreground app."""
         return "com.instagram.android" in self.get_foreground_package()
 
-    def check_for_ad_text(self) -> bool:
-        """Fast check for Sponsored/ad text on screen."""
+    def get_screen_size(self) -> tuple[int, int]:
+        """Get actual screen dimensions from ADB — never assume."""
         try:
-            output = self.shell(
-                "dumpsys activity top | grep -iE 'Sponsored|Shop Now|Learn More|Install Now|Sign Up|Get Offer'",
-                timeout=2,
-            )
-            return len(output.strip()) > 0
-        except Exception:
+            result = self._run(["shell", "wm", "size"], timeout=5)
+            line = result.stdout.strip()
+            # "Physical size: 1080x2400"
+            if "Physical size:" in line:
+                dims = line.split("Physical size:")[-1].strip()
+                w, h = dims.split("x")
+                return int(w), int(h)
+        except Exception as e:
+            logger.warning(f"Failed to get screen size: {e}")
+        return 1080, 2400  # Safe default
+
+    def natural_swipe(self) -> bool:
+        """
+        Perform a natural-feeling upward swipe to advance to next reel.
+        Randomizes start/end coords and uses acceleration curve.
+        """
+        width, height = self.get_screen_size()
+        
+        # Vary start point slightly — looks human, avoids pattern detection
+        import random
+        center_x = (width // 2) + random.randint(-30, 30)
+        start_y = int(height * 0.72) + random.randint(-40, 40)
+        end_y = int(height * 0.22) + random.randint(-40, 40)
+        duration_ms = random.randint(250, 380)  # Human swipe range
+
+        cmd = [
+            "adb", "-s", self.serial,
+            "shell", "input", "swipe",
+            str(center_x), str(start_y),
+            str(center_x), str(end_y),
+            str(duration_ms)
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, timeout=5)
+            return result.returncode == 0
+        except subprocess.TimeoutExpired:
+            logger.warning("Natural swipe timed out")
             return False
 
-    def check_for_keywords(self, keywords: List[str]) -> bool:
-        """Fast check if any of the blocked keywords are on screen."""
-        if not keywords:
-            return False
-        
-        # Build a regex like 'politics|crypto|trading'
-        pattern = "|".join(keywords)
-        try:
-            output = self.shell(
-                f"dumpsys activity top | grep -iE '{pattern}'",
-                timeout=2,
-            )
-            return len(output.strip()) > 0
-        except Exception:
-            return False
+    def get_u2(self):
+        """Lazily initialize UIAutomator2 connection."""
+        if not hasattr(self, "_u2_device"):
+            try:
+                import uiautomator2 as u2
+                self._u2_device = u2.connect(self.serial)
+            except ImportError:
+                logger.warning("uiautomator2 not installed. Some features may use fallbacks.")
+                self._u2_device = None
+            except Exception as e:
+                logger.warning(f"Failed to initialize uiautomator2: {e}")
+                self._u2_device = None
+        return self._u2_device
 
     def press_back(self) -> None:
         """Press the Back button."""
@@ -152,15 +181,52 @@ class ADBDevice:
         """Press Volume Down button."""
         self.key("KEYCODE_VOLUME_DOWN")
         
-    def like_reel(self) -> None:
+    def like_reel(self) -> bool:
         """Double tap the center of the screen to like."""
-        # 540x1200 is center for most 1080x2400 screens
-        self.shell("input tap 540 1200 && input tap 540 1200")
+        width, height = self.get_screen_size()
+        cx = width // 2
+        cy = int(height * 0.45)
         
-    def save_reel(self) -> None:
+        u2_dev = self.get_u2()
+        if u2_dev:
+            try:
+                u2_dev.double_click(cx, cy)
+                return True
+            except Exception as e:
+                logger.warning(f"Like via UIAutomator2 failed: {e}")
+                
+        # Fallback to adb shell
+        try:
+            self.shell(f"input tap {cx} {cy} && input tap {cx} {cy}")
+            return True
+        except Exception:
+            return False
+        
+    def save_reel(self) -> bool:
         """Tap the save button (typically bottom right corner)."""
-        # 950x2000 is approximately the save button on a 1080x2400 screen
-        self.tap(950, 2000)
+        u2_dev = self.get_u2()
+        if u2_dev:
+            try:
+                # Try resource ID first (most stable)
+                btn = u2_dev(descriptionContains="Save")
+                if btn.exists(timeout=2):
+                    btn.click()
+                    return True
+                # Fallback: try text
+                btn2 = u2_dev(textContains="Save")
+                if btn2.exists(timeout=1):
+                    btn2.click()
+                    return True
+            except Exception as e:
+                logger.warning(f"Save by element failed: {e}")
+                
+        # Fallback to coordinate tap
+        width, height = self.get_screen_size()
+        # Roughly 88% width, 83% height
+        save_x = int(width * 0.88)
+        save_y = int(height * 0.83)
+        self.tap(save_x, save_y)
+        return True
 
 
 # ──────────────────────────────────────────────
