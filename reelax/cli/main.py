@@ -3,7 +3,7 @@
 import os
 import subprocess
 import sys
-from typing import Optional
+
 
 # Fix Windows terminal encoding for Unicode symbols
 if sys.platform == "win32":
@@ -14,7 +14,6 @@ if sys.platform == "win32":
 import click
 from loguru import logger
 from rich.console import Console
-from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
@@ -87,8 +86,7 @@ def _build_session_panel(session: ScrollSession, paused: bool) -> Panel:
 def main(ctx):
     """reelax — Auto-scroll Instagram Reels while you code."""
     if ctx.invoked_subcommand is None:
-        from reelax.cli.dashboard import main as dashboard_main
-        dashboard_main()
+        click.echo(ctx.get_help())
 
 
 # ──────────────────────────────────────────────
@@ -102,7 +100,7 @@ def main(ctx):
 @click.option("--idle", default=None, type=float, help="Seconds of no typing before resuming (default: 3)")
 @click.option("--wifi", "-w", default=None, help="Connect via WiFi ADB (e.g. 192.168.1.5:5555)")
 @click.option("--no-keyboard", is_flag=True, help="Disable keyboard detection (always scroll)")
-def start(device: Optional[str], interval: Optional[float], cadence: Optional[str], idle: Optional[float], wifi: Optional[str], no_keyboard: bool):
+def start(device: str | None, interval: float | None, cadence: str | None, idle: float | None, wifi: str | None, no_keyboard: bool):
     """Start scrolling Reels on your connected Android device."""
     console.print(BANNER.format(version=__version__))
 
@@ -120,10 +118,8 @@ def start(device: Optional[str], interval: Optional[float], cadence: Optional[st
     scroll_config = ScrollConfig(
         interval_seconds=resolved_interval,
         idle_threshold_seconds=idle or user_config.keyboard.idle_threshold_seconds,
-        swipe_x=user_config.scroll.swipe_x,
-        swipe_start_y=user_config.scroll.swipe_start_y,
-        swipe_end_y=user_config.scroll.swipe_end_y,
-        swipe_duration_ms=user_config.scroll.swipe_duration_ms,
+        ad_skip_enabled=user_config.scroll.ad_skip_enabled,
+        blocklist_keywords=user_config.scroll.blocklist_keywords,
     )
 
     # Resolve device serial
@@ -159,7 +155,7 @@ def start(device: Optional[str], interval: Optional[float], cadence: Optional[st
         engine = ScrollEngine(config=scroll_config)
 
         if no_keyboard:
-            engine.kb_monitor.idle_threshold = 0  # Never consider "typing"
+            scroll_config.idle_threshold_seconds = 0
 
         # WiFi connection
         if wifi:
@@ -345,17 +341,6 @@ def status():
     """Show current session info (if running)."""
     console.print(BANNER.format(version=__version__))
     console.print("[dim]No active session. Run `reelax start` to begin.[/dim]")
-
-
-# ──────────────────────────────────────────────
-#  reelax dashboard
-# ──────────────────────────────────────────────
-
-@main.command()
-def dashboard():
-    """Launch the interactive dashboard (menu-driven UI)."""
-    from reelax.cli.dashboard import main as dashboard_main
-    dashboard_main()
 
 
 # ──────────────────────────────────────────────

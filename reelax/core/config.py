@@ -1,8 +1,6 @@
 """Configuration loader and validator for reelax."""
 
-import os
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from loguru import logger
@@ -15,7 +13,7 @@ class DeviceConfig(BaseModel):
     """Device connection settings."""
     serial: str = "auto"
     connection: str = "usb"  # "usb" | "wifi"
-    wifi_host: Optional[str] = None
+    wifi_host: str | None = None
 
 
 class ScrollSettings(BaseModel):
@@ -27,7 +25,7 @@ class ScrollSettings(BaseModel):
 
 class MirrorConfig(BaseModel):
     """scrcpy window mirror settings."""
-    width: int = Field(default=540, ge=200, le=1080)
+    width: int = Field(default=420, ge=200, le=1080)
     position_x: int = 0
     position_y: int = 0
     always_on_top: bool = True
@@ -48,19 +46,30 @@ class DisplaySettings(BaseModel):
     show_stats: bool = True
 
 
+class BrowserConfig(BaseModel):
+    """Playwright-based browser automation settings."""
+    width: int = Field(default=420, ge=200, le=1920)
+    height: int = Field(default=900, ge=400, le=1200)
+    headless: bool = False
+    user_data_dir: str = str(Path.home() / ".reelax" / "browser-profile")
+
+
 class ReelaxConfig(BaseModel):
     """Root configuration model for reelax."""
+    mode: str = "adb"  # "adb" | "browser"
     device: DeviceConfig = DeviceConfig()
     scroll: ScrollSettings = ScrollSettings()
     keyboard: KeyboardSettings = KeyboardSettings()
     display: DisplaySettings = DisplaySettings()
     mirror: MirrorConfig = MirrorConfig()
+    browser: BrowserConfig = BrowserConfig()
 
 
 # --- Config File Paths ---
 
 CONFIG_DIR = Path.home() / ".reelax"
 CONFIG_FILE = CONFIG_DIR / "config.yml"
+CONFIG_PATH = CONFIG_FILE
 
 
 # --- Loader / Saver ---
@@ -100,3 +109,11 @@ def get_default_config_yaml() -> str:
     """Return the default config as a YAML string (for display)."""
     config = ReelaxConfig()
     return yaml.dump(config.model_dump(), default_flow_style=False, sort_keys=False)
+
+
+def write_default_config(config_path: Path) -> None:
+    """Write default config YAML to the given path."""
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    data = ReelaxConfig().model_dump()
+    with open(config_path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)

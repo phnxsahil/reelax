@@ -1,125 +1,184 @@
-"""Cross-platform keyboard monitor for reelax.
-
-Uses the `pynput` library to avoid requiring Administrator privileges on Windows.
-Requires Accessibility permissions on macOS.
-"""
-
 import time
 import threading
+import platform
 from loguru import logger
-from typing import Optional
+
+_last_key: float = 0.0
+_lock = threading.Lock()
+_active = False
+_use_ctypes = False
+_poll_thread = None
+_hotkey_thread = None
+_engine_ref = None
+
+# ─── Try keyboard library first ──────────────────────────────────────────────
 
 try:
-    from pynput import keyboard
-    PYNPUT_AVAILABLE = True
+    import keyboard as _kb
+    _KB_AVAILABLE = True
 except ImportError:
-    PYNPUT_AVAILABLE = False
+    _KB_AVAILABLE = False
 
-_last_key_time: float = 0.0
-_lock = threading.Lock()
-_listener: Optional[keyboard.Listener] = None
-_hotkeys: Optional[keyboard.GlobalHotKeys] = None
 
-def _on_press(key) -> None:
-    """Callback for any key press."""
-    global _last_key_time
+def _on_key(event) -> None:
+    global _last_key
     with _lock:
-        _last_key_time = time.monotonic()
+        _last_key = time.monotonic()
 
+
+# ─── Windows ctypes fallback (no admin needed) ─────────────────────────────
+
+def _init_ctypes():
+    global _use_ctypes
+    if platform.system() != "Windows":
+        return False
+    try:
+        import ctypes
+        global _GetAsyncKeyState
+        _GetAsyncKeyState = ctypes.windll.user32.GetAsyncKeyState
+        _use_ctypes = True
+        return True
+    except Exception:
+        return False
+
+
+VK_CODES = list(range(0x08, 0xFF))
+KEY_PRESSED = 0x8000
+
+CTRL_VK = 0x11
+SHIFT_VK = 0x10
+
+HOTKEY_MAP = {
+    "ctrl+shift+n": (CTRL_VK, SHIFT_VK, 0x4E),
+    "ctrl+shift+l": (CTRL_VK, SHIFT_VK, 0x4C),
+    "ctrl+shift+s": (CTRL_VK, SHIFT_VK, 0x53),
+    "ctrl+shift+p": (CTRL_VK, SHIFT_VK, 0x50),
+    "ctrl+shift+q": (CTRL_VK, SHIFT_VK, 0x51),
+}
+
+
+def _ctypes_poll_loop():
+    """Poll thread: detect ANY keypress for typing detection."""
+    global _last_key
+    while _active:
+        for vk in VK_CODES:
+            if _GetAsyncKeyState(vk) & KEY_PRESSED:
+                with _lock:
+                    _last_key = time.monotonic()
+        time.sleep(0.01)
+
+
+def _ctypes_hotkey_loop():
+    """Poll thread: check for hotkey combos."""
+    global _engine_ref
+    last_state = {hk: False for hk in HOTKEY_MAP}
+    while _active:
+        for hk_name, (mod1, mod2, key) in HOTKEY_MAP.items():
+            pressed = (
+                (_GetAsyncKeyState(mod1) & KEY_PRESSED) and
+                (_GetAsyncKeyState(mod2) & KEY_PRESSED) and
+                (_GetAsyncKeyState(key) & KEY_PRESSED)
+            )
+            if pressed and not last_state[hk_name]:
+                last_state[hk_name] = True
+                if _engine_ref:
+                    logger.info(f"Hotkey: {hk_name}")
+                    if hk_name == "ctrl+shift+n":
+                        _engine_ref.skip()
+                    elif hk_name == "ctrl+shift+l":
+                        _engine_ref.like()
+                    elif hk_name == "ctrl+shift+s":
+                        _engine_ref.save()
+                    elif hk_name == "ctrl+shift+p":
+                        _engine_ref.toggle_pause()
+                    elif hk_name == "ctrl+shift+q":
+                        _engine_ref.stop()
+            elif not pressed:
+                last_state[hk_name] = False
+        time.sleep(0.05)
+
+
+# ─── Public API ──────────────────────────────────────────────────────────────
 
 def start_listener() -> bool:
-    """Start the global keyboard listener."""
-    global _listener
+    global _active, _use_ctypes, _poll_thread
 
-    if not PYNPUT_AVAILABLE:
-        logger.warning("pynput not installed. Typing detection disabled.")
-        return False
-
-    if _listener and _listener.running:
+    if _active:
         return True
 
-    try:
-        _listener = keyboard.Listener(on_press=_on_press)
-        _listener.start()
-        
-        # macOS permission check (fails silently if no access)
-        time.sleep(0.2)
-        if not _listener.running:
-            logger.warning("Keyboard listener died. macOS: Grant Accessibility permissions to your terminal.")
-            return False
-            
-        logger.info("Keyboard listener ready.")
+    # Strategy 1: Try keyboard library
+    if _KB_AVAILABLE:
+        try:
+            _kb.on_press(_on_key, suppress=False)
+            _active = True
+            logger.info("Keyboard listener active (keyboard lib)")
+            return True
+        except Exception as e:
+            logger.warning(f"keyboard lib failed: {e}")
+
+    # Strategy 2: Windows ctypes fallback (no admin needed)
+    if _init_ctypes():
+        _active = True
+        _poll_thread = threading.Thread(target=_ctypes_poll_loop, daemon=True)
+        _poll_thread.start()
+        logger.info("Keyboard listener active (ctypes polling, no admin needed)")
         return True
-    except Exception as e:
-        logger.error(f"Keyboard listener failed: {e}")
-        return False
+
+    logger.warning(
+        "Keyboard listener failed. Typing detection disabled. "
+        "On Windows, try running as Administrator."
+    )
+    return False
 
 
 def is_typing(idle_threshold: float = 3.0) -> bool:
-    """Returns True if user typed within the last `idle_threshold` seconds."""
     with _lock:
-        if _last_key_time == 0.0:
-            return False
-        return (time.monotonic() - _last_key_time) < idle_threshold
-
-
-def stop_listener() -> None:
-    """Stop the keyboard listener and hotkeys."""
-    global _listener, _hotkeys
-    
-    if _listener:
-        _listener.stop()
-        _listener = None
-        
-    if _hotkeys:
-        _hotkeys.stop()
-        _hotkeys = None
-        
-    logger.info("Keyboard listeners stopped.")
+        return (time.monotonic() - _last_key) < idle_threshold
 
 
 def register_hotkeys(engine) -> None:
-    """Register global hotkeys via pynput."""
-    global _hotkeys
-    
-    if not PYNPUT_AVAILABLE:
+    global _engine_ref, _hotkey_thread
+
+    _engine_ref = engine
+
+    # Strategy 1: keyboard library hotkeys
+    if _KB_AVAILABLE and not _use_ctypes:
+        try:
+            _kb.add_hotkey("ctrl+shift+n", engine.skip,         suppress=True)
+            _kb.add_hotkey("ctrl+shift+l", engine.like,         suppress=True)
+            _kb.add_hotkey("ctrl+shift+s", engine.save,         suppress=True)
+            _kb.add_hotkey("ctrl+shift+p", engine.toggle_pause, suppress=True)
+            _kb.add_hotkey("ctrl+shift+q", engine.stop,         suppress=True)
+            logger.info("Global hotkeys: Ctrl+Shift+{N=next, L=like, S=save, P=pause, Q=quit}")
+            return
+        except Exception as e:
+            logger.warning(f"keyboard hotkeys failed: {e}")
+
+    # Strategy 2: ctypes polling hotkeys
+    if _use_ctypes:
+        _hotkey_thread = threading.Thread(target=_ctypes_hotkey_loop, daemon=True)
+        _hotkey_thread.start()
+        logger.info("Hotkey polling active (ctypes, no admin needed)")
         return
-        
-    if _hotkeys and _hotkeys.running:
-        return
 
-    try:
-        def on_next():
-            logger.info("Hotkey: Next Reel")
-            engine.skip_to_next()
-            
-        def on_like():
-            logger.info("Hotkey: Like Reel")
-            getattr(engine.device, "like_reel", lambda: None)()
-            
-        def on_save():
-            logger.info("Hotkey: Save Reel")
-            getattr(engine.device, "save_reel", lambda: None)()
-            
-        def on_stop():
-            logger.info("Hotkey: Stop")
-            engine.stop()
+    logger.warning("Hotkey registration failed — no fallback available")
 
-        hotkeys_mapping = {
-            '<ctrl>+<shift>+n': on_next,
-            '<ctrl>+<shift>+l': on_like,
-            '<ctrl>+<shift>+s': on_save,
-            '<ctrl>+<shift>+q': on_stop
-        }
 
-        _hotkeys = keyboard.GlobalHotKeys(hotkeys_mapping)
-        _hotkeys.start()
-        
-        time.sleep(0.2)
-        if not _hotkeys.running:
-            logger.warning("Failed to start GlobalHotKeys (likely macOS permissions).")
-        else:
-            logger.info("Global hotkeys registered: Ctrl+Shift+{N,L,S,Q}")
-            
-    except Exception as e:
-        logger.warning(f"Failed to register global hotkeys: {e}")
+def stop_listener() -> None:
+    global _active, _poll_thread, _hotkey_thread, _engine_ref
+
+    _active = False
+    _engine_ref = None
+
+    if _KB_AVAILABLE and not _use_ctypes:
+        try:
+            _kb.unhook_all()
+        except Exception:
+            pass
+
+    _poll_thread = None
+    _hotkey_thread = None
+    logger.info("Keyboard listeners stopped.")
+
+
+

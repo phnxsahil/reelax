@@ -31,8 +31,8 @@ def test_swipe_calls_correct_args():
         device.swipe(x=500, y_start=1600, y_end=300, duration_ms=500)
         
         expected_cmd = [
-            "adb", "-s", "test-serial", "shell", "input", "swipe",
-            "500", "1600", "500", "300", "500"
+            "adb", "-s", "test-serial",
+            "shell", "input swipe 500 1600 500 300 500"
         ]
         mock_run.assert_called_once()
         assert mock_run.call_args[0][0] == expected_cmd

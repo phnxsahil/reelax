@@ -1,9 +1,7 @@
-"""Scroll loop, cadence engine, ad handling, and session stats for reelax."""
-
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Callable
+
 
 from loguru import logger
 from pydantic import BaseModel
@@ -11,16 +9,14 @@ from pydantic import BaseModel
 from reelax.core.adb import ADBDevice, connect_device
 from reelax.core.keyboard import start_listener, stop_listener, is_typing
 from reelax.core.detector import is_ad_reel, is_blocked_keyword
+from reelax.core.physics import get_screen_size
 
-
-# ──────────────────────────────────────────────
-#  Cadence Modes
-# ──────────────────────────────────────────────
 
 class Cadence(str, Enum):
     SLOW = "slow"
     MEDIUM = "medium"
     FAST = "fast"
+
 
 CADENCE_INTERVALS = {
     Cadence.SLOW: 30.0,
@@ -29,13 +25,8 @@ CADENCE_INTERVALS = {
 }
 
 
-# ──────────────────────────────────────────────
-#  Session Stats
-# ──────────────────────────────────────────────
-
 @dataclass
 class ScrollSession:
-    """Tracks live session statistics."""
     started_at: float = 0.0
     reels_scrolled: int = 0
     ads_skipped: int = 0
@@ -85,10 +76,6 @@ class ScrollSession:
         self._was_paused = False
 
 
-# ──────────────────────────────────────────────
-#  Scroll Config
-# ──────────────────────────────────────────────
-
 class ScrollConfig(BaseModel):
     interval_seconds: float = 20.0
     idle_threshold_seconds: float = 3.0
@@ -96,36 +83,98 @@ class ScrollConfig(BaseModel):
     blocklist_keywords: list[str] = []
 
 
-# ──────────────────────────────────────────────
-#  Scroll Engine
-# ──────────────────────────────────────────────
-
 class ScrollEngine:
-    """Scrolls reels, pauses on typing, skips ads, auto-recovers.
-
-    Design:
-      - NO screen tapping (avoids accidentally clicking ad buttons)
-      - Debounced typing pause
-    """
-
-    def __init__(self, config=None):
+    def __init__(self, config=None, device_serial: str | None = None):
         self.config = config
-        self.device: Optional[ADBDevice] = None
+        self.device: ADBDevice | None = None
+        self._device_serial = device_serial
         self.session = ScrollSession()
         self._running = False
+        self._paused = False
         self._time_on_current_reel = 0.0
         self.last_status = "idle"
 
     @property
-    def is_paused(self) -> bool:
-        return is_typing(self.config.keyboard.idle_threshold_seconds)
+    def running(self) -> bool:
+        return self._running
 
-    def start(self, serial: Optional[str] = None) -> None:
-        """Start the scrolling session (blocking)."""
-        logger.info("Initializing Scroll Engine...")
+    @property
+    def paused(self) -> bool:
+        return self._paused
 
+    @property
+    def stats(self) -> dict:
+        return {
+            "scrolls": self.session.reels_scrolled,
+            "ads_skipped": self.session.ads_skipped,
+            "pauses": self.session.pauses,
+            "session_minutes": int(self.session.elapsed_seconds // 60),
+        }
+
+    def skip(self) -> None:
+        if not self.device or not self._running:
+            return
+        self.device.natural_swipe()
+        self.session.record_scroll()
+        self._time_on_current_reel = 0.0
+        self.last_status = "scrolling"
+
+    def like(self) -> None:
         if not self.device:
-            self.device = connect_device(serial)
+            return
+        self.device.like_reel()
+
+    def save(self) -> None:
+        if not self.device:
+            return
+        self.device.save_reel()
+
+    def pause(self) -> None:
+        self._paused = True
+        self.last_status = "paused"
+
+    def resume(self) -> None:
+        self._paused = False
+        self.last_status = "scrolling"
+
+    def toggle_pause(self) -> None:
+        if self._paused:
+            self.resume()
+        else:
+            self.pause()
+
+    def _get_interval(self) -> float:
+        if self.config is None:
+            return 20.0
+        if hasattr(self.config, 'scroll'):
+            return getattr(self.config.scroll, 'interval_seconds', 20.0)
+        return getattr(self.config, 'interval_seconds', 20.0)
+
+    def _get_idle_threshold(self) -> float:
+        if self.config is None:
+            return 3.0
+        if hasattr(self.config, 'keyboard'):
+            return getattr(self.config.keyboard, 'idle_threshold_seconds', 3.0)
+        return getattr(self.config, 'idle_threshold_seconds', 3.0)
+
+    def _get_ad_skip_enabled(self) -> bool:
+        if self.config is None:
+            return True
+        if hasattr(self.config, 'scroll'):
+            return getattr(self.config.scroll, 'ad_skip_enabled', True)
+        return getattr(self.config, 'ad_skip_enabled', True)
+
+    def _get_blocklist(self) -> list:
+        if self.config is None:
+            return []
+        if hasattr(self.config, 'scroll'):
+            return getattr(self.config.scroll, 'blocklist_keywords', [])
+        return getattr(self.config, 'blocklist_keywords', [])
+
+    def start(self, serial: str | None = None) -> None:
+        logger.info("Initializing Scroll Engine...")
+        if not self.device:
+            self.device = connect_device(serial or self._device_serial)
         logger.info(f"Connected to device: {self.device.serial}")
 
         listener_ok = start_listener()
@@ -140,22 +189,14 @@ class ScrollEngine:
         self._running = False
         stop_listener()
 
-    def skip_to_next(self) -> None:
-        """Manually skip to the next reel."""
-        if not self.device:
-            return
-        self.device.natural_swipe()
-        self.session.record_scroll()
-        self._time_on_current_reel = 0.0
-        self.last_status = "scrolling"
-
     def _run_loop(self) -> None:
-        logger.info(f"Scroll loop started (interval: {self.config.scroll.interval_seconds}s)")
+        interval = self._get_interval()
+        logger.info(f"Scroll loop started (interval: {interval}s)")
         try:
             while self._running:
                 self._tick()
                 slept = 0.0
-                while slept < self.config.scroll.interval_seconds and self._running:
+                while slept < interval and self._running:
                     time.sleep(0.5)
                     slept += 0.5
                     self._time_on_current_reel += 0.5
@@ -168,8 +209,8 @@ class ScrollEngine:
             raise
 
     def _handle_typing_state(self) -> None:
-        """Track typing — no tapping, just pause the scroll timer."""
-        if is_typing(self.config.keyboard.idle_threshold_seconds):
+        threshold = self._get_idle_threshold()
+        if is_typing(threshold):
             self.session.record_pause()
             self.last_status = "paused"
         else:
@@ -178,16 +219,18 @@ class ScrollEngine:
             self.session.record_resume()
 
     def _tick(self) -> None:
-        """Single tick: check state → recover → skip ad → scroll."""
         if not self.device:
             return
 
-        # 1. Typing → do nothing
-        if is_typing(self.config.keyboard.idle_threshold_seconds):
+        if self._paused:
             self.last_status = "paused"
             return
 
-        # 2. Auto-recover if we left Instagram (ad opened browser/external app)
+        threshold = self._get_idle_threshold()
+        if is_typing(threshold):
+            self.last_status = "paused"
+            return
+
         if not self.device.is_instagram_foreground():
             self.last_status = "recovering"
             self.session.record_recovery()
@@ -199,32 +242,30 @@ class ScrollEngine:
             time.sleep(0.5)
             return
 
-        # 3. Ad detection → skip
-        if self.config.scroll.ad_skip_enabled and is_ad_reel(self.device):
+        if self._get_ad_skip_enabled() and is_ad_reel(self.device):
             self.last_status = "ad_skip"
             self.session.record_ad_skip()
             self.device.natural_swipe()
             self.session.record_scroll()
             self._time_on_current_reel = 0.0
-            logger.info(f"⚡ Ad skipped (total: {self.session.ads_skipped})")
-            time.sleep(1.0) # Let next reel load
+            logger.info(f"Ad skipped (total: {self.session.ads_skipped})")
+            time.sleep(1.0)
             return
 
-        # 3.5 Keyword Filtering → skip
-        if self.config.scroll.blocklist_keywords and is_blocked_keyword(self.device, self.config.scroll.blocklist_keywords):
+        blocklist = self._get_blocklist()
+        if blocklist and is_blocked_keyword(self.device, blocklist):
             self.last_status = "keyword_skip"
             self.session.record_keyword_filter()
             self.device.natural_swipe()
             self.session.record_scroll()
             self._time_on_current_reel = 0.0
-            logger.info(f"🛑 Filtered reel based on keyword (total: {self.session.keywords_filtered})")
+            logger.info(f"Filtered reel (total: {self.session.keywords_filtered})")
             time.sleep(1.0)
             return
 
-        # 4. Normal scroll - final debounce check
-        if self._running and not is_typing(self.config.keyboard.idle_threshold_seconds):
+        if self._running and not is_typing(threshold):
             self.last_status = "scrolling"
             self.device.natural_swipe()
             self.session.record_scroll()
             self._time_on_current_reel = 0.0
-            logger.info(f"⏭ Reel #{self.session.reels_scrolled} | {self.session.elapsed_display}")
+            logger.info(f"Reel #{self.session.reels_scrolled} | {self.session.elapsed_display}")

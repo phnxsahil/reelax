@@ -4,18 +4,17 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reelax"
-version = "0.3.3"
+version = "0.4.0"
 description = "Auto-scroll Instagram Reels while you code"
 readme = "README.md"
-authors = [
-    { name = "Developer", email = "dev@example.com" }
-]
+authors = [{ name = "phnxsahil", email = "phnxsahil@gmail.com" }]
+license = { text = "MIT" }
 requires-python = ">=3.10"
-keywords = ["instagram", "reels", "developer-tools", "adb", "automation"]
+keywords = ["instagram", "reels", "developer-tools", "adb", "automation", "productivity"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Environment :: Console",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -23,7 +22,7 @@ classifiers = [
 dependencies = [
     "pystray>=0.19",
     "Pillow>=10.0",
-    "pynput>=1.7.6",
+    "keyboard>=0.13.5",
     "uiautomator2>=3.0.0",
     "click>=8.1.7",
     "rich>=13.7.0",
@@ -32,12 +31,16 @@ dependencies = [
     "loguru>=0.7.2",
 ]
 
+[project.optional-dependencies]
+browser = ["playwright>=1.40.0"]
+
 [project.gui-scripts]
 reelax = "reelax.tray:run_tray"
 
 [project.urls]
 Homepage = "https://github.com/phnxsahil/reelax"
 Issues = "https://github.com/phnxsahil/reelax/issues"
+Changelog = "https://github.com/phnxsahil/reelax/blob/main/CHANGELOG.md"
 
 [tool.ruff]
 line-length = 88
@@ -45,3 +48,6 @@ select = ["E", "F", "I"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["reelax"]

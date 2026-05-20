@@ -5,6 +5,7 @@ Uses a multi-strategy approach:
 2. ADB dumpsys (slower fallback if uia2 is unavailable)
 """
 
+import re
 import subprocess
 from typing import List
 
@@ -47,8 +48,6 @@ def is_ad_reel(device: ADBDevice) -> bool:
     # Strategy 2: Fallback — dumpsys activity
     return _dumpsys_ad_check(device)
 
-
-import re
 
 def _dumpsys_ad_check(device: ADBDevice) -> bool:
     """Scan dumpsys for Sponsored keyword — last resort."""

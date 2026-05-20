@@ -14,14 +14,4 @@ class ADBNotInstalledError(ReelaxError):
     def __init__(self, message: str = "ADB binary not found in PATH.\nPlease install Android SDK Platform-Tools or add adb to your PATH."):
         super().__init__(message)
 
-class InstagramNotFoundError(ReelaxError):
-    """Instagram app not installed or not open on device."""
-    pass
 
-class ScrollFailedError(ReelaxError):
-    """ADB swipe command failed."""
-    pass
-
-class ConfigValidationError(ReelaxError):
-    """Config file has invalid values."""
-    pass
